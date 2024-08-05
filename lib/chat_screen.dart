@@ -1,7 +1,9 @@
 import 'package:chat2/text_composer.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:image_picker/image_picker.dart';
 
 class ChatScreenPage extends StatefulWidget {
@@ -12,8 +14,62 @@ class ChatScreenPage extends StatefulWidget {
 }
 
 class _ChatScreenPageState extends State<ChatScreenPage> {
+  final GoogleSignIn googleSignIn = GoogleSignIn();
+
+  User? _currentUser;
+
+  @override
+  void initState() {
+    super.initState();
+    FirebaseAuth.instance.authStateChanges().listen(
+      (user) {
+        _currentUser = user;
+      },
+    );
+  }
+
+  Future<User?> _getUser() async {
+    if (_currentUser != null) return _currentUser;
+
+    try {
+      final GoogleSignInAccount? googleSignInAccount =
+          await googleSignIn.signIn();
+      final GoogleSignInAuthentication googleSignInAuthentication =
+          await googleSignInAccount!.authentication;
+
+      final AuthCredential credential = GoogleAuthProvider.credential(
+        idToken: googleSignInAuthentication.idToken,
+        accessToken: googleSignInAuthentication.accessToken,
+      );
+
+      final UserCredential authResult =
+          await FirebaseAuth.instance.signInWithCredential(credential);
+
+      final User? user = authResult.user;
+
+      return user;
+    } catch (e) {
+      return null;
+    }
+  }
+
   void _sendMessage({String? text, XFile? img}) async {
-    Map<String, dynamic> data = {};
+    final User? user = await _getUser();
+
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Nao foi possivel fazer o login, tente novamente!"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+
+    Map<String, dynamic> data = {
+      'uid': user!.uid,
+      'senderName': user.displayName,
+      'senderPhotoUrl': user.photoURL,
+    };
 
     if (img != null) {
       UploadTask task = FirebaseStorage.instance
@@ -52,7 +108,8 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                       child: CircularProgressIndicator(),
                     );
                   default:
-                    List<DocumentSnapshot> documents = snapshot.data!.docs.reversed.toList();
+                    List<DocumentSnapshot> documents =
+                        snapshot.data!.docs.reversed.toList();
 
                     return ListView.builder(
                       reverse: true,
