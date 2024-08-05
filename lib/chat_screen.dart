@@ -1,3 +1,4 @@
+import 'package:chat2/chat_message.dart';
 import 'package:chat2/text_composer.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -108,18 +109,14 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                       child: CircularProgressIndicator(),
                     );
                   default:
-                    List<DocumentSnapshot> documents =
-                        snapshot.data!.docs.reversed.toList();
+                    List<DocumentSnapshot> documents = snapshot.data!.docs;
 
                     return ListView.builder(
                       reverse: true,
                       itemCount: documents.length,
                       itemBuilder: (context, index) {
-                        return ListTile(
-                          title: Text(
-                            documents[index].get('text'),
-                          ),
-                        );
+                        return ChatMessage(
+                            documents[index].data() as Map<String, dynamic>, true);
                       },
                     );
                 }
